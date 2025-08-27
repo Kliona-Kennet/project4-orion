@@ -1,18 +1,33 @@
-# backend/storage.py
 from __future__ import annotations
+
 import os, uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# --- Load .env explicitly from project root (…/afl-vision-insight/.env) ---
+ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(dotenv_path=ROOT / ".env")
+
+# --- Read & normalize DATABASE_URL (force psycopg v3 driver name) ---
+DATABASE_URL = (os.getenv("DATABASE_URL") or "").strip()
+if DATABASE_URL.startswith("postgresql+psycopg2"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql+psycopg2", "postgresql+psycopg", 1)
+
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL not set. Put it in afl-vision-insight/.env, e.g.\n"
+        "DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/aflvision"
+    )
 
 from sqlalchemy import create_engine, func, String, Integer, DateTime
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL not set")
-
-# --- SQLAlchemy setup ---
+# --- SQLAlchemy engine/session ---
+# psycopg v3 is the DBAPI when using +psycopg.
 engine = create_engine(DATABASE_URL, future=True, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
@@ -37,10 +52,10 @@ class Inference(Base):
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-# Create tables automatically (quick start; replace with Alembic later)
+# Create tables automatically (quick start; prefer Alembic migrations later)
 Base.metadata.create_all(bind=engine)
 
-# --- CRUD helpers used by your routes ---
+# --- DB helpers used by routes ---
 def _db():
     return SessionLocal()
 
@@ -113,7 +128,7 @@ def inferences_summary() -> dict:
                 "created_at": last.created_at.isoformat()
             }
         return {"total": total, "by_task": {"player": player, "crowd": crowd}, "last": last_payload}
-    
+
 def init_db() -> None:
     # ensure tables exist and connection is healthy
     Base.metadata.create_all(bind=engine)

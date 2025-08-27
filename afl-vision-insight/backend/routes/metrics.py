@@ -1,19 +1,14 @@
 from fastapi import APIRouter
-from fastapi.responses import JSONResponse
-from routes import metrics_store
- 
+from backend.routes.metrics_store import snapshot
+
 router = APIRouter()
- 
+
 @router.get("/")
 async def get_metrics():
-    metrics_data = {
-        "player_tracking": {
-            "calls": metrics_store.player_tracking_calls,
-            "last_output": metrics_store.last_player_tracking_output
-        },
-        "crowd_monitoring": {
-            "calls": metrics_store.crowd_monitoring_calls,
-            "last_output": metrics_store.last_crowd_monitoring_output
-        }
+    snap = snapshot()
+    models = snap.get("models", {})
+    total_calls = sum(m.get("count", 0) for m in models.values())
+    return {
+        "total_calls": total_calls,
+        "models": models,
     }
-    return JSONResponse(content=metrics_data)
