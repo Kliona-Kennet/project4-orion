@@ -44,3 +44,8 @@ afl-vision-insight/player_tracking_service/uploaded_videos/
 *.pid
 *.seed
 *.bak
+
+
+# Ignore generated heatmaps
+afl-vision-insight/crowd_monitoring_service/heatmaps/*
+afl-vision-insight/backend/static/heatmaps/*
